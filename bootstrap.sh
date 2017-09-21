@@ -93,6 +93,8 @@ osx_macports()
         install_macports_pkg "virtualbox"
     fi
 
+    install_macports_pkg "coreutils"
+    install_macports_pkg "findutils"
     install_macports_pkg "gcc49" "gcc-4.9"
     install_macports_pkg "nasm"
     install_macports_pkg "pkgconfig"
@@ -120,6 +122,8 @@ osx_homebrew()
         install_brew_pkg "virtualbox"
     fi
 
+    install_brew_pkg "coreutils"
+    install_brew_pkg "findutils"
     install_brew_pkg "gcc49" "gcc-4.9"
     install_brew_pkg "nasm"
     install_brew_pkg "pkg-config"
@@ -174,7 +178,7 @@ ubuntu()
 	echo "Updating system..."
 	sudo "$2" update
 	echo "Installing required packages..."
-	sudo "$2" install build-essential libc6-dev-i386 nasm curl file git libfuse-dev fuse
+	sudo "$2" install build-essential libc6-dev-i386 nasm curl file git libfuse-dev fuse pkg-config
 	if [ "$1" == "qemu" ]; then
 		if [ -z "$(which qemu-system-x86_64)" ]; then
 			echo "Installing QEMU..."
@@ -258,7 +262,7 @@ suse()
 		fi
 	fi
 	echo "Installing necessary build tools..."
-	sudo zypper install gcc gcc-c++ glibc-devel-32bit nasm make libfuse
+	sudo zypper install gcc gcc-c++ glibc-devel-32bit nasm make fuse-devel
 }
 
 ##############################################################################
@@ -277,12 +281,14 @@ gentoo()
 		echo "Installing git..."
 		sudo emerge dev-vcs/git
 	fi
-	echo "Installing fuse..."
-	sudo emerge sys-fs/fuse
+	if [ -z "$(which fusermount)" ]; then
+		echo "Installing fuse..."
+		sudo emerge sys-fs/fuse
+	fi
 	if [ "$2" == "qemu" ]; then
 		if [ -z "$(which qemu-system-x86_64)" ]; then
 			echo "Please install QEMU and re-run this script"
-			echo "Step1. Add QEMU_SOFTMMU_TARGETS=\"i386\" to /etc/portage/make.conf"
+			echo "Step1. Add QEMU_SOFTMMU_TARGETS=\"x86_64\" to /etc/portage/make.conf"
 			echo "Step2. Execute \"sudo emerge app-emulation/qemu\""
 		else
 			echo "QEMU already installed!"
@@ -298,7 +304,7 @@ gentoo()
 solus()
 {
 	echo "Detected SolusOS"
-	
+
 	if [ "$1" == "qemu" ]; then
 		if [ -z "$(which qemu-system-x86_64)" ]; then
 			sudo eopkg it qemu
@@ -314,7 +320,7 @@ solus()
 			echo "Virtualbox already installed!"
 		fi
 	fi
-	
+
 	echo "Installing necessary build tools..."
 	#if guards are not necessary with eopkg since it does nothing if latest version is already installed
 	sudo eopkg it fuse-devel git gcc g++ libgcc-32bit libstdc++-32bit nasm make
@@ -472,7 +478,7 @@ boot()
 	exit
 }
 
-if [ "$1" == "-h" ]; then
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 	usage
 elif [ "$1" == "-u" ]; then
 	git pull upstream master
@@ -501,31 +507,29 @@ banner
 if [ "Darwin" == "$(uname -s)" ]; then
 	osx "$emulator"
 else
-	# Here we will user package managers to determine which operating system the user is using
+	# Here we will use package managers to determine which operating system the user is using.
+	
 	# Arch linux
 	if hash 2>/dev/null pacman; then
 		archLinux "$emulator"
-	fi
-	# Debian or any derivative of it
-	if hash 2>/dev/null apt-get; then
-		ubuntu "$emulator" "$defpackman"
-	fi
-	# Fedora
-	if hash 2>/dev/null dnf; then
-		fedora "$emulator"
-	fi
 	# Suse and derivatives
-	if hash 2>/dev/null zypper; then
+	elif hash 2>/dev/null zypper; then
 		suse "$emulator"
-	fi
+	# Debian or any derivative of it
+	elif hash 2>/dev/null apt-get; then
+		ubuntu "$emulator" "$defpackman"
+	# Fedora
+	elif hash 2>/dev/null dnf; then
+		fedora "$emulator"
 	# Gentoo
-	if hash 2>/dev/null emerge; then
+	elif hash 2>/dev/null emerge; then
 		gentoo "$emulator"
- 	fi
 	# SolusOS
-	if hash 2>/dev/null eopkg; then
+	elif hash 2>/dev/null eopkg; then
 		solus "$emulator"
-	fi
+	fi	
+	
+
 fi
 
 if [ "$dependenciesonly" = false ]; then
